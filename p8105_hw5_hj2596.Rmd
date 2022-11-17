@@ -84,8 +84,10 @@ tidy_df %>%
 
 This plot suggests high within-subject correlation -- subjects who start above average end up above average, and those that start below average end up below average. Subjects in the control group generally don't change over time, but those in the experiment group increase their outcome in a roughly linear way.
 
+##Problem 2
+
 ```{r}
-homicide_data = read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
+homicide_data = read_csv("./data/homicide-data.csv")
 ```
 This dataset has `r nrow(homicide_data)` rows and `r ncol(homicide_data)` columns. The columns(variables) are `r names(homicide_data)` and each row is a homicide incidnet.
 
@@ -95,5 +97,66 @@ homicide_data=
   mutate(city_state = str_c(city, state, sep = ", "))
 ```
 Created a new variable city_state by concatenating city and state, seperateing with ','.
+
+```{r}
+cities=
+  homicide_data %>%
+  mutate(
+    unsolved = case_when(
+      disposition == "Open/No arrest" ~ 1,
+      disposition == "Closed without arrest" ~ 1,
+      disposition == "Closed by arrest" ~ 0,
+    )
+  ) %>%
+  group_by(city) %>%
+  summarize(
+    num_case = n(),
+    num_unsolved_case = sum(unsolved)
+  )
+```
+Summarize within cities to obtain the total number of homicides and the number of unsolved homicides 
+
+```{r}
+cities %>% 
+  filter(city == "Baltimore")
+```
+
+```{r}
+proportion_baltimore <-prop.test(
+  cities%>%
+    filter(city == "Baltimore") %>% 
+    pull(num_unsolved_case), 
+  cities%>%
+    filter(city == "Baltimore") %>% 
+    pull(num_case))%>%
+  broom::tidy()
+proportion_baltimore
+```
+
+
+```{r}
+all_cities = 
+  cities %>%
+  mutate(
+    all_cities_proportion = map2(.x = num_unsolved_case, .y = num_case, ~prop.test(x = .x, n = .y)),
+    all_cities_proportion = map(all_cities_proportion, broom::tidy)) %>% 
+  unnest(cols = c(all_cities_proportion)) %>%
+  select(city, num_unsolved_case, num_case, estimate, conf.low, conf.high)
+all_cities
+```
+
+```{r}
+all_cities%>%
+  mutate(city = fct_reorder(city, estimate)) %>%
+  ggplot(aes(x = city, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  labs(y = "Estimated proportion", x = "City", title = "Proportion of Unsolved Homicide Cases") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)
+  ) 
+```
+
+##Problem 3
+
 
 
