@@ -27,6 +27,8 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+set.seed(1)
 ```
 
 
@@ -96,7 +98,7 @@ homicide_data=
   homicide_data %>%
   mutate(city_state = str_c(city, state, sep = ", "))
 ```
-Created a new variable city_state by concatenating city and state, seperateing with ','.
+Created a new variable `city_state` by concatenating city and state, seperateing with ','.
 
 ```{r}
 cities=
@@ -120,6 +122,7 @@ Summarize within cities to obtain the total number of homicides and the number o
 cities %>% 
   filter(city == "Baltimore")
 ```
+Filter data only with the city Baltimore
 
 ```{r}
 proportion_baltimore <-prop.test(
@@ -130,9 +133,12 @@ proportion_baltimore <-prop.test(
     filter(city == "Baltimore") %>% 
     pull(num_case))%>%
   broom::tidy()
-proportion_baltimore
+proportion_baltimore %>% 
+  select(estimate, conf.low, conf.high) %>% 
+  knitr::kable(digits = 3)
 ```
-
+The code chunk above used `prop.test` function and `broom::tidy` to get the estimated proportion of homicides that are unsolved among all the hoicide cases in Baltimore, MD. 
+The estimate proportion is 0.646. And the condience interval is (0.628, 0.663).
 
 ```{r}
 all_cities = 
@@ -142,8 +148,11 @@ all_cities =
     all_cities_proportion = map(all_cities_proportion, broom::tidy)) %>% 
   unnest(cols = c(all_cities_proportion)) %>%
   select(city, num_unsolved_case, num_case, estimate, conf.low, conf.high)
-all_cities
+all_cities %>% 
+  select(estimate, conf.low, conf.high) %>% 
+  knitr::kable(digits = 3)
 ```
+The code chunk above used `prop.test` function, `map2`, `map` and `broom::tidy` to get the estimated proportion of unresolved homicides in all cities.
 
 ```{r}
 all_cities%>%
@@ -155,6 +164,7 @@ all_cities%>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1)
   ) 
 ```
+Create a plot that shows the estimated proportion of unresolved homocide and CIs for each city and add the errorbars based on the lower and upper limits.
 
 ##Problem 3
 
@@ -168,7 +178,7 @@ test_simulation = function(mean_input) {
 }
 
 ```
-
+Create a function that generate dataset from the normal distribution model given and obtain the estimate and p-value.
 
 ```{r}
 result1 = 
@@ -182,6 +192,7 @@ result1 =
   ) %>% 
   unnest(testresult)
 ```
+Generate 5000 datasets from the model.
 
 ```{r}
 result2 = 
@@ -195,6 +206,7 @@ result2 =
   ) %>% 
   unnest(testresult)
 ```
+Repeat the above for μ={1,2,3,4,5,6}
 
 ```{r}
 data_for_plot = 
@@ -203,7 +215,8 @@ data_for_plot =
   mutate(
     null_rejected = ifelse(pvalue < 0.05, 1, 0),
     power = mean(null_rejected)
-  ) %>% 
+  ) 
+data_for_plot %>% 
   ggplot(aes(x = set_mean, y = power)) +
   geom_point() +
   geom_line() +
@@ -214,8 +227,38 @@ data_for_plot =
   )
 ```
 
-ˆ
 ```{r}
+avg_est = data_for_plot %>% 
+  group_by(set_mean) %>%
+  mutate(mean_estimate = mean(estimate)) %>% 
+  ggplot(aes(x = set_mean, y = mean_estimate)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous( breaks = 1:6 ) +
+  scale_y_continuous( breaks = 1:6 ) +
+  labs(
+    x = "True Mean",
+    y = "Average Estimate of Mean"
+  ) 
+avg_est
 
+reject_null = data_for_plot %>% 
+  filter(null_rejected == 1) %>%
+  group_by(set_mean) %>%
+  mutate(mean_estimate = mean(estimate)) %>% 
+  ggplot(aes(x = set_mean, y = mean_estimate)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous( breaks = 1:6 ) +
+  scale_y_continuous( breaks = 1:6 ) +
+  labs(
+    x = "Mean",
+    y = "Average Estimate of Mean of Null Rejected"
+  ) 
+
+reject_null
 ```
-
+In the first graph, we can see the average estimate of mu on the y axis and the true value of mu on the x axis are very close to each other.
+In the second graph, we can observe that in the samples where the null is rejected, when the mu is equal to or smaller than 3, the sample average of mu is obviously larger than the true value of mu. When mu is equal to or larger than 4, it is not obviously different from the true value of mu.
+We know that the power is relatively lower when mu is less than 3. And
+this is why the sample average is higher than the true mu value when the mu we set is less than or equal to 3. When the power is lower, the estimate on the mu is less precise.
